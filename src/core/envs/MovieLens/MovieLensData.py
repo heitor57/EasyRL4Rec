@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.calibration import LabelEncoder
 
 sys.path.extend([".", "./src", "./src/DeepCTR-Torch", "./src/tianshou"])
-from src.core.envs.MovieLens import provide_MF_results
+# from src.core.envs.MovieLens import provide_MF_results
 from src.core.envs.BaseData import BaseData, get_distance_mat
 
 # ROOTPATH = os.path.dirname(__file__)
@@ -189,8 +189,8 @@ class MovieLensData(BaseData):
         filename_GT = os.path.join(DATAPATH, "rating_matrix.csv")
         if os.path.exists(filename_GT):
             mat = pd.read_csv(filename_GT, header=None).to_numpy()
-        else:
-            mat = provide_MF_results.main()
+        # else:
+        #     mat = provide_MF_results.main()
 
         mat[mat < 0] = 0
         mat[mat > 5] = 5

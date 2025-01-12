@@ -40,3 +40,5 @@ events.*
 *.pickle
 temp.*
 *.dat
+
+data/
