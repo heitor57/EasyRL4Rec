@@ -4,8 +4,10 @@ import pickle
 import pandas as pd
 import pathlib
 import numpy as np
+from scipy.sparse import csr_matrix
 
 sys.path.extend([".", "./src", "./src/DeepCTR-Torch", "./src/tianshou"])
+from sklearn.preprocessing import LabelEncoder
 from src.core.envs.BaseData import BaseData, get_distance_mat
 
 # ROOTPATH = os.path.dirname(__file__)
@@ -23,7 +25,18 @@ class SiTunesData(BaseData):
         self.train_data_path = "train.parquet"
         self.val_data_path = "test.parquet"
         self.num_users = 30
-    
+        # self.label_encoding_trained = False
+        self.lbe_item= None
+        self.lbe_user=None
+    def get_num_users(self):
+        return self.num_users
+    def get_num_items(self):
+        return self.load_item_feat()['item_id'].nunique()
+    def get_train_data(self):
+        return self.get_df('train')
+
+    def get_val_data(self):
+        return self.get_df('val')
     def get_features(self, is_userinfo=True):
         user_features = ["user_id", 'gender_u', 'age', 'location', 'fashioninterest']
         if not is_userinfo:
@@ -32,10 +45,34 @@ class SiTunesData(BaseData):
         reward_features = ["rating"]
         return user_features, item_features, reward_features
         
-    def get_df(self, name="train.parquet"):
+    def get_df(self, name="train"):
+        
+        
+        interactions_stage1_df = pd.read_csv(DATAPATH / "Stage1"/ "interactions.csv")
+        interactions_stage2_df = pd.read_csv(DATAPATH / "Stage2"/ "interactions.csv")
+        interactions_stage3_df = pd.read_csv(DATAPATH / "Stage3"/ "interactions.csv")
+        
+        df_item = self.load_item_feat()
+        df_user = self.load_user_feat()
+        if name == 'train':
+            df_data = pd.concat([interactions_stage1_df,interactions_stage2_df],axis=0)
+        elif name == 'all':
+            df_data = pd.concat([interactions_stage1_df,interactions_stage2_df,interactions_stage3_df],axis=0)
+        elif name == 'val':
+            df_data = pd.concat([interactions_stage3_df],axis=0)
+        df_data['user_id'] = df_data['user_id']-1
+        # if not self.lbe_user:
+        #     self.lbe_user = LabelEncoder()
+        #     self.lbe_user.fit(df_data['user_id'].unique())
+        df_data['item_id'] = self.lbe_item.transform(df_data['item_id'])
+        # df_data['user_id'] = self.lbe_user.transform(df_data['user_id'])
+        df_data['rating']=df_data['rating'].apply(int)
+        # print(df_data['user_id'])
+        df_data = df_data.join(df_item,on='item_id', rsuffix='right')
+        # print(df_data['user_id'].describe())
         # read interaction
-        filename = os.path.join(PRODATAPATH, name)
-        df_data = pd.read_parquet(filename)
+        # filename = os.path.join(PRODATAPATH, name)
+        # df_data = pd.read_parquet(filename)
         # df_data = pd.DataFrame([], columns=["user_id", "item_id", "rating"])
 
         # for item in mat_train.columns:
@@ -46,10 +83,9 @@ class SiTunesData(BaseData):
         # df_data.reset_index(drop=True, inplace=True)
 
         # read user feature
-        df_user = self.load_user_feat()
+
 
         # read item features
-        df_item = SiTunesData.load_item_feat()
 
         # df_data = df_data.join(df_user, on="user_id", how='left')
         # df_data = df_data.join(df_item, on="item_id", how='left')
@@ -60,7 +96,7 @@ class SiTunesData(BaseData):
         return df_data, df_user, df_item, list_feat
 
     def get_domination(self):
-        df_data, _, df_item, _ = self.get_df("train.pickle")
+        df_data, _, df_item, _ = self.get_df("train")
         feature_domination_path = os.path.join(PRODATAPATH, "feature_domination.pickle")
 
         if os.path.isfile(feature_domination_path):
@@ -76,7 +112,7 @@ class SiTunesData(BaseData):
         if os.path.isfile(item_similarity_path):
             item_similarity = pickle.load(open(item_similarity_path, 'rb'))
         else:
-            mat = SiTunesData.load_mat()
+            mat = self.load_mat()
             mat_distance = SiTunesData.get_saved_distance_mat(mat, PRODATAPATH)
             item_similarity = 1 / (mat_distance + 1)
             pickle.dump(item_similarity, open(item_similarity_path, 'wb'))
@@ -88,7 +124,7 @@ class SiTunesData(BaseData):
         if os.path.isfile(item_popularity_path):
             item_popularity = pickle.load(open(item_popularity_path, 'rb'))
         else:
-            df_data, df_user, df_item, list_feat = self.get_df("train.ascii")
+            df_data, df_user, df_item, list_feat = self.get_df("all")
 
             n_users = df_data['user_id'].nunique()
             n_items = df_data['item_id'].nunique()
@@ -110,20 +146,55 @@ class SiTunesData(BaseData):
     def load_user_feat(self):
         df_user = pd.DataFrame(np.arange(self.num_users), columns=["user_id"])
         df_user.set_index("user_id", inplace=True)
+        # if not self.lbe_user:
+        #     self.lbe_user = LabelEncoder()
+        #     self.lbe_user.fit(df_user['user_id'].unique())
+        # df_user['user_id'] =self.lbe_item.transform(df_user['user_id'])
         return df_user
 
-    @staticmethod
-    def load_item_feat():
+    def load_item_feat(self):
         df_item = pd.read_csv(DATAPATH / "music_metadata"/ "music_info.csv")
+        df_item = df_item.loc[~df_item['item_id'].isin([-1])]
+        df_item = df_item.sort_values('item_id').reset_index(drop=True)[['item_id', 'popularity', 'loudness', 'danceability','energy', 'key', 'speechiness', 'acousticness', 'instrumentalness', 'valence', 'tempo', 'general_genre_id', 'duration', 'F0final_sma_amean',  'F0final_sma_stddev', 'audspec_lengthL1norm_sma_stddev', 'pcm_RMSenergy_sma_stddev', 'pcm_fftMag_psySharpness_sma_amean',     'pcm_fftMag_psySharpness_sma_stddev', 'pcm_zcr_sma_amean', 'pcm_zcr_sma_stddev']]
+        if not self.lbe_item:
+            # df_data, _, _, _ = self.get_df('all')
+            # df_data = pd.concat([interactions_stage1_df,interactions_stage2_df,interactions_stage3_df],axis=0)
+            # df_data['item_id']
+            self.lbe_item = LabelEncoder()
+            self.lbe_item.fit(df_item['item_id'].unique())
+
+        df_item['item_id'] =self.lbe_item.transform(df_item['item_id'])
         return df_item
     
-    @staticmethod
-    def load_mat():
-        df_user = pd.DataFrame(np.arange(num_users), columns=["user_id"])
-        df_user.set_index("user_id", inplace=True)
-        return df_user
+    # @staticmethod
+    def load_mat(self):
+        # df_user = pd.DataFrame(np.arange(self.num_users), columns=["user_id"])
+        # df_user.set_index("user_id", inplace=True)
+        
+        interactions_path = os.path.join(PRODATAPATH, "interactions.parquet")
+        df_small, df_user, df_item, list_feat = self.get_df('all')
+        # df_small['watch_ratio'][df_small['watch_ratio'] > 5] = 5
+        # df_small.loc[df_small['rating'] > 5, 'watch_ratio'] = 5
 
+        # lbe_item = LabelEncoder()
+        # lbe_item.fit(df_small['item_id'].unique())
 
+        # lbe_user = LabelEncoder()
+        # lbe_user.fit(df_small['user_id'].unique())
+        # print(df_small['item_id'])
+        
+        # print(df_small)
+        
+        # print(df_small['item_id'])
+        print((df_small['user_id'].nunique(), df_small['item_id'].nunique()))
+        print((df_small['user_id'].max(), df_small['item_id'].max()))
+        print((df_small['user_id'].min(), df_small['item_id'].min()))
+        print((self.get_num_users(), self.get_num_items()))
+        mat = csr_matrix(
+            (df_small['rating'],(df_small['user_id'], df_small['item_id'])),
+            shape=(self.get_num_users(), self.get_num_items())).toarray()
+
+        return mat
  
 if __name__ == "__main__":
     dataset = SiTunesData()
@@ -131,13 +202,13 @@ if __name__ == "__main__":
     df_val, df_user_val, df_item_val, _ = dataset.get_val_data()
     print("SiTunes: Train #user={}  #item={}  #inter={}".format(df_train['user_id'].nunique(), df_train['item_id'].nunique(), len(df_train)))
     print("SiTunes: Test  #user={}  #item={}  #inter={}".format(df_val['user_id'].nunique(), df_val['item_id'].nunique(), len(df_val)))
-    print(df_user_train)
-    print(df_item_train)
-    print(df_train)
-    print('=====================dataset.get_features()')
-    print(dataset.get_features())
-    print('dataset.get_df()')
-    print(dataset.get_df())
+    # print(df_user_train)
+    # print(df_item_train)
+    # print(df_train)
+    # print('=====================dataset.get_features()')
+    # print(dataset.get_features())
+    # print('dataset.get_df()')
+    # print(dataset.get_df())
     print('dataset.get_domination()')
     print(dataset.get_domination())
     print('dataset.get_item_similarity()')
