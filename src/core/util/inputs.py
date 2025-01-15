@@ -8,7 +8,7 @@ from torch import nn
 
 from deepctr_torch.inputs import SparseFeat, DenseFeat, VarLenSparseFeat, varlen_embedding_lookup, \
     get_varlen_pooling_list
-
+import logzero
 DEFAULT_GROUP_NAME = "default_group"
 
 
@@ -59,7 +59,19 @@ def input_from_feature_columns(X, feature_columns, embedding_dict, feature_index
     if not support_dense and len(dense_feature_columns) > 0:
         raise ValueError(
             "DenseFeat is not supported in dnn_feature_columns")
+    # print(feature_index[feat.name])
+    # print(feature_index[feat.name][0])
 
+    # print([(feature_index[feat.name][0],feature_index[feat.name][1]) for feat in sparse_feature_columns])
+    print(X[:5,:])
+    # print([X[:, feature_index[feat.name][0]:feature_index[feat.name][1]].long()[:5] for feat in sparse_feature_columns])
+
+    print([X[:, feature_index[feat.name][0]:feature_index[feat.name][1]].shape for feat in sparse_feature_columns])
+    print([embedding_dict[feat.embedding_name] for
+        feat in sparse_feature_columns])
+    
+    print([(feature_index[feat.name][0],feature_index[feat.name][1]) for feat in sparse_feature_columns])
+    
     sparse_embedding_list = [embedding_dict[feat.embedding_name](
         X[:, feature_index[feat.name][0]:feature_index[feat.name][1]].long()) for
         feat in sparse_feature_columns]
@@ -82,6 +94,9 @@ def create_embedding_matrix(feature_columns, init_std=0.0001, linear=False, spar
 
     varlen_sparse_feature_columns = list(
         filter(lambda x: isinstance(x, VarLenSparseFeat), feature_columns)) if len(feature_columns) else []
+    # print()
+    logzero.logger.info(str([(feat.name,feat.vocabulary_size, feat.embedding_dim if not linear else 1) for feat in
+         sparse_feature_columns + varlen_sparse_feature_columns]))
 
     embedding_dict = nn.ModuleDict(
         {feat.embedding_name: nn.Embedding(feat.vocabulary_size, feat.embedding_dim if not linear else 1, sparse=sparse,

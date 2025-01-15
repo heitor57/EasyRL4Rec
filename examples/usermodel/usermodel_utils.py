@@ -127,6 +127,12 @@ def get_args_dataset_specific(envname):
         parser.add_argument('--batch_size', default=4096, type=int)
         parser.add_argument('--leave_threshold', default=10, type=float)
         parser.add_argument('--num_leave_compute', default=3, type=int)
+    elif envname == 'SiTunesEnv-v0':
+        parser.add_argument("--feature_dim", type=int, default=8)
+        parser.add_argument("--entity_dim", type=int, default=8)
+        parser.add_argument('--batch_size', default=2048, type=int)
+        parser.add_argument('--leave_threshold', default=75, type=float)
+        parser.add_argument('--num_leave_compute', default=7, type=int)
     else:
         raise (
             "envname should be in the following four datasets: {'CoatEnv-v0', 'YahooEnv-v0', 'KuaiEnv-v0', 'KuaiRand-v0', 'MovieLensEnv-v0'}")
@@ -356,6 +362,9 @@ def get_task(envname, yfeat):
     elif envname == 'KuaiEnv-v0':
         task = "regression"
         is_ranking = False
+    elif envname == 'SiTunesEnv-v0':
+        task = "regression"
+        is_ranking = False
     elif envname == 'KuaiRand-v0':
         task = "regression" if yfeat == "watch_ratio_normed" else "binary"
         is_ranking = True
@@ -386,6 +395,26 @@ def get_xy_columns(args, df_data, df_user, df_item, user_features, item_features
                                  embedding_name="feat",  # Share the same feature!
                                  padding_idx=0  # using padding_idx in embedding!
                                  ) for x in feat]
+    elif args.env == "SiTunesEnv-v0":
+        # [SparseFeatP(col, df_user[col].max() + 1, embedding_dim=feature_dim, padding_idx=0) for col in user_features[1:]] + \
+        # numerical_feat = 
+        # categorical_feat=  ['popularity', 'loudness', 'danceability','energy', 'key', 'speechiness', 'acousticness', 'instrumentalness', 'valence', 'tempo', 'general_genre_id', 'duration', 'F0final_sma_amean',  'F0final_sma_stddev', 'audspec_lengthL1norm_sma_stddev', 'pcm_RMSenergy_sma_stddev', 'pcm_fftMag_psySharpness_sma_amean',     'pcm_fftMag_psySharpness_sma_stddev', 'pcm_zcr_sma_amean', 'pcm_zcr_sma_stddev']
+        categorical_features = ['general_genre_id','key']
+        numerical_features = ['popularity', 'loudness', 'danceability', 'energy', 'speechiness', 
+    'acousticness', 'instrumentalness', 'valence', 'tempo', 'duration', 
+    'F0final_sma_amean', 'F0final_sma_stddev', 'audspec_lengthL1norm_sma_stddev', 
+    'pcm_RMSenergy_sma_stddev', 'pcm_fftMag_psySharpness_sma_amean', 
+    'pcm_fftMag_psySharpness_sma_stddev', 'pcm_zcr_sma_amean', 'pcm_zcr_sma_stddev'
+]
+        x_columns = [SparseFeatP("user_id", df_data['user_id'].max() + 1, embedding_dim=entity_dim)] + \
+                    [SparseFeatP("item_id", df_data['item_id'].max() + 1, embedding_dim=entity_dim)] + \
+                    [SparseFeatP(x,
+                                 df_item[x].max() + 1,
+                                 embedding_dim=feature_dim,
+                                #  embedding_name="feat",  # Share the same feature!
+                                #  padding_idx=0  # using padding_idx in embedding!
+                                 ) for x in categorical_features]   + \
+                    [DenseFeat(x, 1) for x in numerical_features]
     else: # For Yahoo and Coat dataset
         x_columns = [SparseFeatP("user_id", df_data['user_id'].max() + 1, embedding_dim=entity_dim)] + \
                     [SparseFeatP(col, df_user[col].max() + 1, embedding_dim=feature_dim) for col in user_features[1:]] + \

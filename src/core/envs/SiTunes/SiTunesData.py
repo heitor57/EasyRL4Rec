@@ -115,7 +115,7 @@ class SiTunesData(BaseData):
         # df_data['user_id'] = self.lbe_user.transform(df_data['user_id'])
         df_data['rating']=df_data['rating'].apply(int)
         # print(df_data['user_id'])
-        df_data = df_data.join(df_item,on='item_id', rsuffix='right')
+        df_data = df_data.join(df_item,on='item_id', rsuffix='_right')
         # print(df_data['user_id'].describe())
         # read interaction
         # filename = os.path.join(PRODATAPATH, name)
@@ -139,7 +139,11 @@ class SiTunesData(BaseData):
 
         # df_data = df_data.astype(int)
         list_feat = None
-
+        df_data = df_data.drop('No.',axis=1)
+        df_data = df_data.drop('inter_id',axis=1)
+        # df_data = df_data.drop('inter_id_right',axis=1)
+        df_data = df_data.drop('duration_right',axis=1)
+        df_data = df_data.drop('item_id_right',axis=1)
         return df_data, df_user, df_item, list_feat
 
     def get_domination(self):
@@ -211,6 +215,7 @@ class SiTunesData(BaseData):
             self.lbe_item.fit(df_item['item_id'].unique())
 
         df_item['item_id'] =self.lbe_item.transform(df_item['item_id'])
+        df_item['key'] = df_item['key'].apply(int)
         return df_item
     
     # @staticmethod
@@ -278,5 +283,9 @@ if __name__ == "__main__":
     print(dataset.get_train_data()[0].shape)
 
     print(dataset.get_val_data()[0].shape)
+    
+    print(dataset.get_train_data()[0].columns)
+
+
 
 
