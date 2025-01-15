@@ -18,6 +18,45 @@ PRODATAPATH = pathlib.Path(os.path.join(ROOTPATH, "processed"))
 for path in [PRODATAPATH]:
     if not os.path.exists(path):
         os.mkdir(path)
+        
+
+def train_validation_split(df, id_column, train_ratio=0.7, random_state=None):
+    """
+    Splits a DataFrame into train and validation sets, ensuring that 70% of rows
+    for each unique id are in the training set, and the rest in the validation set.
+
+    Parameters:
+    - df (pd.DataFrame): The DataFrame to split.
+    - id_column (str): The name of the column containing the unique id.
+    - train_ratio (float): The ratio of the data to be used for training (default 0.7).
+    - random_state (int): Seed for random number generator (default None).
+
+    Returns:
+    - train_df (pd.DataFrame): The training DataFrame.
+    - val_df (pd.DataFrame): The validation DataFrame.
+    """
+    if id_column not in df.columns:
+        raise ValueError(f"Column '{id_column}' not found in DataFrame.")
+
+    # Shuffle the DataFrame to ensure randomness
+    df = df.sample(frac=1, random_state=random_state).reset_index(drop=True)
+
+    # Initialize empty lists for train and validation data
+    train_data = []
+    val_data = []
+
+    # Group by the id_column and split each group
+    grouped = df.groupby(id_column)
+    for _, group in grouped:
+        split_point = int(len(group) * train_ratio)
+        train_data.append(group.iloc[:split_point])
+        val_data.append(group.iloc[split_point:])
+
+    # Concatenate all train and validation data
+    train_df = pd.concat(train_data).reset_index(drop=True)
+    val_df = pd.concat(val_data).reset_index(drop=True)
+
+    return train_df, val_df
 
 class SiTunesData(BaseData):
     def __init__(self):
@@ -38,10 +77,10 @@ class SiTunesData(BaseData):
     def get_val_data(self):
         return self.get_df('val')
     def get_features(self, is_userinfo=True):
-        user_features = ["user_id", 'gender_u', 'age', 'location', 'fashioninterest']
+        user_features = ["user_id"]
         if not is_userinfo:
             user_features = ["user_id"]
-        item_features = ['item_id', 'gender_i', "jackettype", 'color', 'onfrontpage']
+        item_features = ['item_id', 'popularity', 'loudness', 'danceability','energy', 'key', 'speechiness', 'acousticness', 'instrumentalness', 'valence', 'tempo', 'general_genre_id', 'duration', 'F0final_sma_amean',  'F0final_sma_stddev', 'audspec_lengthL1norm_sma_stddev', 'pcm_RMSenergy_sma_stddev', 'pcm_fftMag_psySharpness_sma_amean',     'pcm_fftMag_psySharpness_sma_stddev', 'pcm_zcr_sma_amean', 'pcm_zcr_sma_stddev']
         reward_features = ["rating"]
         return user_features, item_features, reward_features
         
@@ -54,12 +93,20 @@ class SiTunesData(BaseData):
         
         df_item = self.load_item_feat()
         df_user = self.load_user_feat()
+        df_data = pd.concat([interactions_stage1_df,interactions_stage2_df,interactions_stage3_df],axis=0)
+        train_df, val_df = train_validation_split(df_data, 'item_id', train_ratio=0.7, random_state=1)
         if name == 'train':
-            df_data = pd.concat([interactions_stage1_df,interactions_stage2_df],axis=0)
+            df_data = train_df
         elif name == 'all':
-            df_data = pd.concat([interactions_stage1_df,interactions_stage2_df,interactions_stage3_df],axis=0)
+            pass
         elif name == 'val':
-            df_data = pd.concat([interactions_stage3_df],axis=0)
+            df_data = val_df
+        # if name == 'train':
+        #     df_data = pd.concat([interactions_stage1_df,interactions_stage2_df],axis=0)
+        # elif name == 'all':
+        #     df_data = pd.concat([interactions_stage1_df,interactions_stage2_df,interactions_stage3_df],axis=0)
+        # elif name == 'val':
+        #     df_data = pd.concat([interactions_stage3_df],axis=0)
         df_data['user_id'] = df_data['user_id']-1
         # if not self.lbe_user:
         #     self.lbe_user = LabelEncoder()
@@ -221,3 +268,15 @@ if __name__ == "__main__":
     print(dataset.load_item_feat())
     print('dataset.load_mat()')
     print(dataset.load_mat())
+    
+    print('train')
+    print(dataset.get_train_data()[0]['item_id'].max())
+    print('val')
+    print((dataset.get_val_data()[0]['item_id']==940).sum())
+    
+    
+    print(dataset.get_train_data()[0].shape)
+
+    print(dataset.get_val_data()[0].shape)
+
+

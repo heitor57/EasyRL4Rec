@@ -28,9 +28,10 @@ class SiTunesEnv(BaseEnv):
 
     @staticmethod
     def load_env_data():
-        mat = SiTunesData.load_mat()
-        df_item = SiTunesData.load_item_feat()
-        mat_distance = SiTunesData.get_saved_distance_mat(mat, PRODATAPATH)
+        situnesdata = SiTunesData()
+        mat = situnesdata.load_mat()
+        df_item = situnesdata.load_item_feat()
+        mat_distance = situnesdata.get_saved_distance_mat(mat, PRODATAPATH)
         return mat, df_item, mat_distance
 
     def _determine_whether_to_leave(self, t, action):
