@@ -141,9 +141,16 @@ class SiTunesData(BaseData):
         list_feat = None
         df_data = df_data.drop('No.',axis=1)
         df_data = df_data.drop('inter_id',axis=1)
-        # df_data = df_data.drop('inter_id_right',axis=1)
         df_data = df_data.drop('duration_right',axis=1)
         df_data = df_data.drop('item_id_right',axis=1)
+#         categorical_features = ['general_genre_id','key']
+#         numerical_features = ['popularity', 'loudness', 'danceability', 'energy', 'speechiness', 
+#     'acousticness', 'instrumentalness', 'valence', 'tempo', 'duration', 
+#     'F0final_sma_amean', 'F0final_sma_stddev', 'audspec_lengthL1norm_sma_stddev', 
+#     'pcm_RMSenergy_sma_stddev', 'pcm_fftMag_psySharpness_sma_amean', 
+#     'pcm_fftMag_psySharpness_sma_stddev', 'pcm_zcr_sma_amean', 'pcm_zcr_sma_stddev'
+# ]
+#         df_data=  df_data[['user_id','item_id']+categorical_features+numerical_features+['rating']]
         return df_data, df_user, df_item, list_feat
 
     def get_domination(self):

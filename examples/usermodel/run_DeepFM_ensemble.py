@@ -109,7 +109,7 @@ def main(args, is_save=True):
                           epsilon=args.epsilon, is_ucb=args.is_ucb, need_transform=args.need_transform,
                           num_trajectory=args.num_trajectory, item_feat_domination=item_feat_domination,
                           force_length=args.force_length, top_rate=args.top_rate))
-
+    # print(dataset_val)
     # %% 5. Learn and evaluate model
 
     ensemble_models.fit_data(dataset_train, dataset_val,

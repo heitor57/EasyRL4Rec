@@ -71,10 +71,24 @@ def input_from_feature_columns(X, feature_columns, embedding_dict, feature_index
         feat in sparse_feature_columns])
     
     print([(feature_index[feat.name][0],feature_index[feat.name][1]) for feat in sparse_feature_columns])
-    
-    sparse_embedding_list = [embedding_dict[feat.embedding_name](
-        X[:, feature_index[feat.name][0]:feature_index[feat.name][1]].long()) for
-        feat in sparse_feature_columns]
+    sparse_embedding_list = []
+
+    for feat in sparse_feature_columns:
+        # print(feat,'ewoq')
+        # Extract the embedding name and feature slice
+        embedding_name = feat.embedding_name
+        feature_slice = X[:, feature_index[feat.name][0]:feature_index[feat.name][1]].long()
+        
+        # Apply the embedding dictionary to the feature slice
+        # print(feature_slice)
+        embedding = embedding_dict[embedding_name](feature_slice)
+        
+        # Append the result to the list
+        sparse_embedding_list.append(embedding)
+
+    # sparse_embedding_list = [embedding_dict[feat.embedding_name](
+    #     X[:, feature_index[feat.name][0]:feature_index[feat.name][1]].long()) for
+    #     feat in sparse_feature_columns]
 
     sequence_embed_dict = varlen_embedding_lookup(X, embedding_dict, feature_index,
                                                   varlen_sparse_feature_columns)
